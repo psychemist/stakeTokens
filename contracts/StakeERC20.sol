@@ -1,18 +1,22 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity ^0.8.24;
 
-import "./IERC20.sol";
+// import "./IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/interfaces/IERC20.sol";
+
 
 contract StakeERC20 {
     // Custom Errors
-    error ZeroAddressDetected();
     error CannotSendZeroValue();
+    error FailedTransfer();
     error InsufficientContractBalance();
     error InsufficientFunds();
     error MaxDurationExceeded();
+    error NotOwner();
     error StakingPeriodNotOver();
     error StakingRewardsAlreadyClaimed();
-    error NotOwner();
+    error ZeroAddressDetected();
 
     address private _owner;
     IERC20 public token;
@@ -28,19 +32,25 @@ contract StakeERC20 {
         uint256 startTime; // in seconds
         uint256 vestingPeriod; // in seconds
         address staker;
+        bool isStaked;
         bool isMature;
     }
 
     mapping(address => Stake) userStakes;
 
     // Events
+    event DepositSuccessful(
+        address indexed sender,
+        uint256 amount,
+        uint256 timeAtDeposit
+    );
     event StakeSuccessful(
         address indexed staker,
         uint256 amount,
         uint256 timeAtStaking
     );
     event WithdrawSuccessful(
-        address indexed staker,
+        address indexed withdrawer,
         uint256 amount,
         uint256 timeAtWithdrawal
     );
@@ -50,10 +60,31 @@ contract StakeERC20 {
         token = IERC20(_tokenAddress);
     }
 
+    function depositTokens(uint256 _amount) external {
+        if (msg.sender == address(0)) {
+            revert ZeroAddressDetected();
+        }
+
+        if (_amount <= 0) {
+            revert CannotSendZeroValue();
+        }
+
+        bool success = token.transferFrom(msg.sender, address(this), _amount);
+        if (!success) {
+            revert FailedTransfer();
+        } 
+
+        emit DepositSuccessful(msg.sender, _amount, block.timestamp);
+    }
+
     function stakeTokens(uint256 _amount, uint256 _duration) external {
         // Perform checks
         if (msg.sender == address(0)) {
             revert ZeroAddressDetected();
+        }
+
+        if (userStakes[msg.sender].isStaked) {
+            revert StakingPeriodNotOver();
         }
 
         if (_amount <= 0) {
@@ -71,17 +102,18 @@ contract StakeERC20 {
         newStake.stakeAmount = _amount;
         newStake.startTime = block.timestamp;
         newStake.vestingPeriod = _duration;
+        newStake.isStaked = true;
 
         // Deposit tokens into contract staking pool
         if (token.balanceOf(msg.sender) < _amount) {
             revert InsufficientFunds();
         }
 
+        // Stake user's approved token amount
+        token.transferFrom(msg.sender, address(this), _amount);
+
         // Push newly created stake to stakes array in storage
         userStakes[msg.sender] = newStake;
-
-        // Stake user'sapproved token amount
-        token.transferFrom(msg.sender, address(this), _amount);
 
         // Trigger staking event
         emit StakeSuccessful(msg.sender, _amount, block.timestamp);
@@ -119,6 +151,7 @@ contract StakeERC20 {
         }
 
         st.isMature = true;
+        st.isStaked = false;
 
         token.transfer(msg.sender, matureStake);
 

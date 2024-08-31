@@ -3,20 +3,21 @@ pragma solidity ^0.8.24;
 
 contract StakeEther {
     // Custom Errors
-    error ZeroAddressDetected();
     error CannotSendZeroValue();
     error InsufficientContractBalance();
     error FailedTransfer();
     error MaxDurationExceeded();
+    error NotOwner();
     error StakingPeriodNotOver();
     error StakingRewardsAlreadyClaimed();
-    error NotOwner();
+    error ZeroAddressDetected();
 
     address private _owner;
+    uint256 public constant MIN_DURATION = 4 weeks;
     uint256 public constant MAX_DURATION = 365 days;
     uint256 public constant SECONDS_IN_YEAR = MAX_DURATION * 24 * 60 * 60;
     // uint256 public constant MIN_STAKE = 1e18;
-    uint8 public constant INTEREST_RATE = 2; // Representing 4% as4
+    uint8 public constant INTEREST_RATE = 2; // Representing 4% as 4
 
     struct Stake {
         uint256 stakeAmount; // in lowest denomination (1e18)
@@ -24,6 +25,7 @@ contract StakeEther {
         uint256 startTime; // in seconds
         uint256 vestingPeriod; // in seconds
         address staker;
+        bool isStaked;
         bool isMature;
     }
 
@@ -36,7 +38,7 @@ contract StakeEther {
         uint256 timeAtStaking
     );
     event WithdrawSuccessful(
-        address indexed staker,
+        address indexed withdrawer,
         uint256 amount,
         uint256 timeAtWithdrawal
     );
@@ -46,34 +48,42 @@ contract StakeEther {
     }
 
     function stakeEther(uint256 _duration) external payable {
-        // Perform checks
+        // Perform sanity check
         if (msg.sender == address(0)) {
             revert ZeroAddressDetected();
         }
 
+        if (userStakes[msg.sender].isStaked) {
+            revert StakingPeriodNotOver();
+        }
+
+        // Check zero transfer amount 
         if (msg.value <= 0) {
             revert CannotSendZeroValue();
         }
 
+        // Check length of duration
         if (_duration > MAX_DURATION) {
             revert MaxDurationExceeded();
         }
 
         // Create new stake in memory for user
         Stake memory newStake;
-
         newStake.staker = msg.sender;
         newStake.stakeAmount = msg.value;
         newStake.startTime = block.timestamp;
         newStake.vestingPeriod = _duration;
+        newStake.isStaked = true;
 
-        // Push newly created stake to stakes array in storage
+        // Add newly created stake to stakes mapping in storage
         userStakes[msg.sender] = newStake;
 
+        // Trigger successful staking event
         emit StakeSuccessful(msg.sender, msg.value, block.timestamp);
     }
 
     function withdrawStake() external {
+        // Perform sanity check
         if (msg.sender == address(0)) {
             revert ZeroAddressDetected();
         }
@@ -105,6 +115,7 @@ contract StakeEther {
         }
 
         st.isMature = true;
+        st.isStaked = false;
 
         (bool success, ) = msg.sender.call{value: matureStake}("");
         if (!success) {
