@@ -1,6 +1,6 @@
-# Sample Hardhat Project
+# Stake Tokens
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
+This project demonstrates a basic Hardhat use case. It comes with two contracts for staking Ether and ERC20 tokens, and a Hardhat Ignition module that deploys the contracts.
 
 Try running some of the following tasks:
 
