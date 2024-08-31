@@ -17,6 +17,7 @@ contract StakeEther {
     uint256 public constant MAX_DURATION = 365 days;
     uint256 public constant SECONDS_IN_YEAR = MAX_DURATION * 24 * 60 * 60;
     // uint256 public constant MIN_STAKE = 1e18;
+    uint64 public constant PRECISION_FACTOR = 1e18; // Scaling factor for precision
     uint8 public constant INTEREST_RATE = 2; // Representing 4% as 4
 
     struct Stake {
@@ -132,8 +133,8 @@ contract StakeEther {
         uint256 principal = st.stakeAmount;
         uint256 stakingDuration = _duration;
 
-        uint256 stakingReward = (principal * INTEREST_RATE * stakingDuration) /
-            (SECONDS_IN_YEAR * 100);
+        uint256 stakingReward = (principal * INTEREST_RATE * stakingDuration * PRECISION_FACTOR) /
+            (SECONDS_IN_YEAR * 100 * PRECISION_FACTOR);
 
         return stakingReward;
     }
