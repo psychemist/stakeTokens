@@ -107,7 +107,7 @@ contract StakeERC20 {
             revert StakingPeriodNotOver();
         }
 
-        if (!st.isMature) {
+        if (st.isMature) {
             revert StakingRewardsAlreadyClaimed();
         }
 
