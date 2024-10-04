@@ -61,6 +61,7 @@ contract StakeERC20 {
     }
 
     function depositTokens(uint256 _amount) external {
+        // Check for zero address and zero amount
         if (msg.sender == address(0)) {
             revert ZeroAddressDetected();
         }
@@ -69,16 +70,18 @@ contract StakeERC20 {
             revert CannotSendZeroValue();
         }
 
+        // Deposit Ether into contract address to fund rewards
         bool success = token.transferFrom(msg.sender, address(this), _amount);
         if (!success) {
             revert FailedTransfer();
         } 
 
+        // Trigger successful Deposit event
         emit DepositSuccessful(msg.sender, _amount, block.timestamp);
     }
 
     function stakeTokens(uint256 _amount, uint256 _duration) external {
-        // Perform checks
+        // Perform checks and revert errors as due
         if (msg.sender == address(0)) {
             revert ZeroAddressDetected();
         }
@@ -95,7 +98,7 @@ contract StakeERC20 {
             revert MaxDurationExceeded();
         }
 
-        // Create new stake variable in memory for user
+        // Create new stake variable in memory for user and assign properties
         Stake memory newStake;
 
         newStake.staker = msg.sender;
@@ -109,24 +112,29 @@ contract StakeERC20 {
             revert InsufficientFunds();
         }
 
-        // Stake user's approved token amount
+        // Transfer user's approved stake amount to contract balance
         token.transferFrom(msg.sender, address(this), _amount);
 
         // Push newly created stake to stakes array in storage
         userStakes[msg.sender] = newStake;
 
-        // Trigger staking event
+        // Trigger successful Staking event
         emit StakeSuccessful(msg.sender, _amount, block.timestamp);
     }
 
     function withdrawStake() external {
+        // Perform sanity check
         if (msg.sender == address(0)) {
             revert ZeroAddressDetected();
         }
 
+        // Create storage variable to hold and manipulate Stake struct
         Stake storage st = userStakes[msg.sender];
+
+        // Calculate user's total staking period
         uint256 stakingPeriod = st.startTime + st.vestingPeriod;
 
+        // Catch and throw all withdrawal errors
         if (st.stakeAmount <= 0) {
             revert CannotSendZeroValue();
         }
@@ -143,24 +151,30 @@ contract StakeERC20 {
             revert StakingRewardsAlreadyClaimed();
         }
 
+        // Calculate staking reward
         st.stakeReward = _calculateReward(stakingPeriod);
         uint256 matureStake = st.stakeAmount + st.stakeReward;
 
+        // Check contract balance before transferring money
         if (matureStake > token.balanceOf(address(this))) {
             revert InsufficientContractBalance();
         }
 
+        // Toggle booleans in Stake struct to false to indicate matured stake
         st.isMature = true;
         st.isStaked = false;
 
+        // Transfer stake + reward to user's address
         token.transfer(msg.sender, matureStake);
 
+        // Trigger successful Withdrawal event
         emit WithdrawSuccessful(msg.sender, matureStake, block.timestamp);
     }
 
     function _calculateReward(
         uint256 _duration
     ) private view returns (uint256) {
+        //
         Stake storage st = userStakes[msg.sender];
         uint256 principal = st.stakeAmount;
         uint256 stakingDuration = _duration;
