@@ -2,9 +2,7 @@
 pragma solidity ^0.8.24;
 
 // import "./IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
-
 
 contract StakeERC20 {
     // Custom Errors
@@ -74,7 +72,7 @@ contract StakeERC20 {
         bool success = token.transferFrom(msg.sender, address(this), _amount);
         if (!success) {
             revert FailedTransfer();
-        } 
+        }
 
         // Trigger successful Deposit event
         emit DepositSuccessful(msg.sender, _amount, block.timestamp);
@@ -182,8 +180,10 @@ contract StakeERC20 {
         // uint256 stakingReward = (principal * INTEREST_RATE * stakingDuration) /
         //     (SECONDS_IN_YEAR * 100);
 
-        uint256 stakingReward = (principal * INTEREST_RATE * stakingDuration * PRECISION_FACTOR) /
-            (SECONDS_IN_YEAR * 100 * PRECISION_FACTOR);
+        uint256 stakingReward = (principal *
+            INTEREST_RATE *
+            stakingDuration *
+            PRECISION_FACTOR) / (SECONDS_IN_YEAR * 100 * PRECISION_FACTOR);
 
         return stakingReward;
     }
